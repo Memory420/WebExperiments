@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Профили игроков (тестовые данные)</title>
+    <link rel="icon" type="image/png" sizes="120x120" href="/favicon.png">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -51,7 +52,6 @@
             transform: none;
             animation: none;
         }
-
         .profile-card.visible {
             animation: fadeInUp 0.5s ease-out forwards;
         }
@@ -79,11 +79,30 @@
 </div>
 
 <script>
-
+    // Глобальные переменные для пагинации
     let offset = 0;
-    let initialLoad = true;
+    const initialLimit = 48;
+    const subsequentLimit = 16;
     let loading = false;
 
+    // Set для отслеживания уже отрисованных профилей (по уникальному полю, например, имени)
+    const loadedProfileNames = new Set();
+
+    // Функция дебаунс для оптимизации скролла
+    function debounce(func, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
+    }
+
+    // Добавляем только один обработчик скролла с дебаунсом
+    window.addEventListener('scroll', debounce(handleScroll, 200));
+
+    // IntersectionObserver для анимации появления карточек
     const observer = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting && !entry.target.classList.contains('animated')) {
@@ -95,60 +114,80 @@
                 }, { once: true });
             }
         });
-    }, {
-        threshold: 0.1
-    });
+    }, { threshold: 0.1 });
 
+    // Функция запроса профилей с сервера
     async function fetchProfiles(offset, limit) {
         loading = true;
+        console.log(`[FETCH] Начало запроса: offset=${offset}, limit=${limit}`);
         try {
             const response = await fetch(`/api/players/getbyhours?offset=${offset}&limit=${limit}`);
             if (!response.ok) {
                 throw new Error(`Ошибка сети: ${response.status}`);
             }
             const profiles = await response.json();
+            console.log(`[FETCH] Получено ${profiles.length} профилей`);
             renderProfiles(profiles);
+            // Если получено меньше, чем запрашивалось — данные закончились
+            if (profiles.length < limit) {
+                console.log(`[FETCH] Данные закончились, отключаю скролл`);
+                window.removeEventListener('scroll', handleScroll);
+            }
+            return profiles.length;
         } catch (error) {
-            console.error("Ошибка при загрузке профилей: ", error);
+            console.error("[FETCH] Ошибка при загрузке профилей: ", error);
+            return 0;
         } finally {
             loading = false;
         }
     }
 
+    // Функция отрисовки карточек
     function renderProfiles(profiles) {
         const container = document.getElementById('profilesContainer');
         profiles.forEach(profile => {
+            // Если профиль уже отрисован, пропускаем его
+            if (loadedProfileNames.has(profile.name)) {
+                console.warn(`[RENDER] Дубликат обнаружен и пропущен: ${profile.name}`);
+                return;
+            }
+            loadedProfileNames.add(profile.name);
+
             const card = document.createElement('div');
             card.className = 'profile-card';
 
             card.innerHTML = `
-            <div class="profile-nick">${profile.name}</div>
-            <div class="profile-time">${profile.hours_played} ч.</div>
-            <div class="profile-likes">❤ ${profile.like_count}</div>
+          <div class="profile-nick">${profile.name}</div>
+          <div class="profile-time">${profile.hours_played} ч.</div>
+          <div class="profile-likes">❤ ${profile.like_count}</div>
         `;
             card.addEventListener('click', () => {
                 window.location.href = 'https://spinningrat.online/';
             });
             container.appendChild(card);
             observer.observe(card);
+            console.log(`[RENDER] Отрисована карточка: ${profile.name}`);
         });
     }
 
-    function handleScroll() {
+    // Обработчик скролла для подгрузки новых карточек
+    async function handleScroll() {
         if (loading) return;
-
         const scrollPosition = window.innerHeight + window.scrollY;
         const threshold = document.body.offsetHeight - 500;
-
         if (scrollPosition >= threshold) {
-            offset += 10;
-            fetchProfiles(offset, 16);
+            console.log(`[SCROLL] Достигнут порог. scrollPosition=${scrollPosition}, threshold=${threshold}`);
+            const loadedCount = await fetchProfiles(offset, subsequentLimit);
+            offset += loadedCount;
+            console.log(`[SCROLL] Обновлён offset: ${offset}`);
         }
     }
 
-    fetchProfiles(offset, 48);
-
-    window.addEventListener('scroll', handleScroll);
+    // Начальная загрузка профилей
+    fetchProfiles(offset, initialLimit).then((loaded) => {
+        offset += loaded;
+        console.log(`[INIT] Начальная загрузка завершена, offset=${offset}`);
+    });
 </script>
 </body>
 </html>
