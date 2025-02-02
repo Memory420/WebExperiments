@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "name": "Scotium",
+    "hours_played": 126,
+    "like_count": 6
+  },
+  {
+    "id": 2,
+    "name": "prostuzhen",
+    "hours_played": 176,
+    "like_count": 2
+  },
+  {
+    "id": 1,
+    "name": "or_mem",
+    "hours_played": 143,
+    "like_count": 5
+  },
+  {
+    "id": 1,
+    "name": "IvanNovr",
+    "hours_played": 189,
+    "like_count": 27
+  }
+]
