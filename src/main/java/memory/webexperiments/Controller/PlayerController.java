@@ -4,6 +4,7 @@ import memory.webexperiments.Model.Player;
 import memory.webexperiments.Service.RedisZSetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,9 +26,12 @@ public class PlayerController {
 
 
     @GetMapping("/getbyhours")
-    public List<Player> getPlayersByHours(
+    public ResponseEntity<List<Player>> getPlayersByHours(
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "20") int limit) {
+        if (offset < 0 || limit <= 0 || limit > 100) { // ограничим лимит, например, 100
+            return ResponseEntity.badRequest().build();
+        }
         Set<ZSetOperations.TypedTuple<Object>> hoursAndName = redisZSetService.zsetTopWithScores(
                 PLAYTIME_KEY, offset, offset + limit - 1);
 
@@ -44,6 +48,6 @@ public class PlayerController {
                 dtos.add(new Player(name, hoursPlayed, likeCount));
             }
         }
-        return dtos;
+        return ResponseEntity.ok(dtos);
     }
 }
