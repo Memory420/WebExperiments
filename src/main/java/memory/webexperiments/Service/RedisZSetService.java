@@ -24,6 +24,10 @@ public class RedisZSetService {
         return redisTemplate.opsForZSet().reverseRange(name, start, end);
     }
 
+    public Double zsetScore(String setName, Object key) {
+        return redisTemplate.opsForZSet().score(setName, key);
+    }
+
     public Set<ZSetOperations.TypedTuple<Object>> zsetTopWithScores(String name, int start, int end) {
         return redisTemplate.opsForZSet().reverseRangeWithScores(name, start, end);
     }
@@ -49,5 +53,16 @@ public class RedisZSetService {
     }
     public void flushAll() {
         redisTemplate.getConnectionFactory().getConnection().flushAll();
+    }
+    static public void printZSet(String setName, RedisZSetService service, int reach){
+        if (reach == -1){
+            reach = 0;
+        }
+        Set<ZSetOperations.TypedTuple<Object>> set = service.zsetTopWithScores(setName,
+                0, reach - 1);
+        System.out.println(setName + ": ");
+        set.forEach(i -> System.out.println("   " + i.getValue() + " - "
+                + i.getScore()));
+        System.out.println();
     }
 }
